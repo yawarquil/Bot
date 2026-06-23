@@ -321,14 +321,15 @@ def posting_loop():
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path in ("/", "/health"):
-            self.send_response(200)
-            self.send_header("Content-type", "text/plain")
-            self.end_headers()
-            self.wfile.write(b"ok")
-        else:
-            self.send_response(404)
-            self.end_headers()
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"ok")
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
 
     def log_message(self, format, *args):
         pass  # silent
