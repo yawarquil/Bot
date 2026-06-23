@@ -22,9 +22,8 @@ EMOJI_ROLE_MAP = {
 }
 
 intents = discord.Intents.default()
-intents.members = True
-intents.message_content = True
-intents.reactions = True
+intents.members = True       # privileged — enable in dev portal
+intents.reactions = True     # not privileged
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
