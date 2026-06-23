@@ -13,9 +13,18 @@ TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 WELCOME_CH_ID = 1518949506656505876   # 👥-users
 LEAVE_CH_ID = 1518949510687232073     # 🚪-members-left
 
+# Reaction roles: message in 👋-welcome
+REACTION_MSG_ID = 1518951433289076747
+EMOJI_ROLE_MAP = {
+    "🎬": 1518951407838040256,  # Movies
+    "📺": 1518951412413890690,  # Shows
+    "🎌": 1518951416977428490,  # Anime
+}
+
 intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
+intents.reactions = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -71,6 +80,40 @@ async def on_member_remove(member):
 
     embed.set_footer(text=f"We now have {remaining} members remaining.")
     await channel.send(embed=embed)
+
+
+@bot.event
+async def on_raw_reaction_add(payload):
+    if payload.message_id != REACTION_MSG_ID:
+        return
+    role_id = EMOJI_ROLE_MAP.get(str(payload.emoji))
+    if not role_id:
+        return
+    guild = bot.get_guild(payload.guild_id)
+    if not guild:
+        return
+    member = guild.get_member(payload.user_id)
+    role = guild.get_role(role_id)
+    if member and role and not member.bot:
+        await member.add_roles(role)
+        print(f"Added {role.name} to {member.name}")
+
+
+@bot.event
+async def on_raw_reaction_remove(payload):
+    if payload.message_id != REACTION_MSG_ID:
+        return
+    role_id = EMOJI_ROLE_MAP.get(str(payload.emoji))
+    if not role_id:
+        return
+    guild = bot.get_guild(payload.guild_id)
+    if not guild:
+        return
+    member = guild.get_member(payload.user_id)
+    role = guild.get_role(role_id)
+    if member and role:
+        await member.remove_roles(role)
+        print(f"Removed {role.name} from {member.name}")
 
 
 @bot.command()

@@ -341,66 +341,8 @@ def start_health_server():
     server.serve_forever()
 
 
-# ── Reaction role watcher (polling) ──
-
-REACTION_MSG_ID = "1518951433289076747"
-WELCOME_CHANNEL_ID = "1518948915087544340"
-REACTION_STATE_FILE = "discord_reaction_state.json"
-
-EMOJI_ROLE_MAP = {
-    "%F0%9F%8E%AC": "1518951407838040256",  # Movies
-    "%F0%9F%93%BA": "1518951412413890690",  # Shows
-    "%F0%9F%8E%8C": "1518951416977428490",  # Anime
-}
-
-
-def load_reaction_state() -> set:
-    try:
-        if Path(REACTION_STATE_FILE).exists():
-            with open(REACTION_STATE_FILE) as f:
-                return set(json.load(f))
-    except:
-        pass
-    return set()
-
-
-def save_reaction_state(s: set):
-    with open(REACTION_STATE_FILE, "w") as f:
-        json.dump(list(s), f)
-
-
-def watch_reactions():
-    """Poll reaction role message and assign roles."""
-    logger.info("Reaction watcher started (5s poll)...")
-    processed = load_reaction_state()
-
-    while True:
-        try:
-            for emoji_enc, role_id in EMOJI_ROLE_MAP.items():
-                url = f"{DISCORD_API}/channels/{WELCOME_CHANNEL_ID}/messages/{REACTION_MSG_ID}/reactions/{emoji_enc}"
-                r = requests.get(url, headers=headers(), params={"limit": 100})
-                if r.status_code != 200:
-                    continue
-                for user in r.json():
-                    uid = user["id"]
-                    if uid == "1518934382663041226":
-                        continue
-                    key = f"{uid}:{role_id}"
-                    if key not in processed:
-                        r2 = requests.put(
-                            f"{DISCORD_API}/guilds/1518875523781103636/members/{uid}/roles/{role_id}",
-                            headers=headers(),
-                        )
-                        if r2.status_code == 204:
-                            logger.info(f"Role {role_id} -> user {uid}")
-                            processed.add(key)
-                            save_reaction_state(processed)
-        except Exception as e:
-            logger.error(f"Watcher error: {e}")
-        time.sleep(5)
-
-
 # ── Entry ──
+# Reaction roles are handled in discord_welcome.py (gateway events, real-time).
 
 if __name__ == "__main__":
     import sys
@@ -409,18 +351,5 @@ if __name__ == "__main__":
         logger.error("DISCORD_BOT_TOKEN not set!")
         sys.exit(1)
 
-    if "--watch" in sys.argv:
-        # Just reaction watcher
-        threading.Thread(target=start_health_server, daemon=True).start()
-        watch_reactions()
-
-    elif "--all" in sys.argv:
-        # Posting loop + reaction watcher + health server
-        threading.Thread(target=start_health_server, daemon=True).start()
-        threading.Thread(target=watch_reactions, daemon=True).start()
-        posting_loop()
-
-    else:
-        # Posting loop + health server
-        threading.Thread(target=start_health_server, daemon=True).start()
-        posting_loop()
+    threading.Thread(target=start_health_server, daemon=True).start()
+    posting_loop()
