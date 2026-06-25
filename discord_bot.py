@@ -345,8 +345,8 @@ def start_health_server():
 
 GUILD_ID = "1518875523781103636"
 BOT_USER_ID = "1518934382663041226"
-REACTION_MSG_ID = "1518951433289076747"
-WELCOME_CHANNEL_ID = "1518948915087544340"
+REACTION_MSG_ID = "1519535773639250034"      # 'Pick Your Roles' msg in #📍-roles
+WELCOME_CHANNEL_ID = "1519534556376731778"   # #📍-roles channel
 REACTION_STATE_FILE = "discord_reaction_state.json"
 
 # URL-encoded emoji -> role id
