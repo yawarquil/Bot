@@ -421,6 +421,78 @@ def watch_reactions():
         time.sleep(10)
 
 
+# ── Gateway connection (keeps the bot showing "online") ──
+
+GATEWAY_URL = "wss://gateway.discord.gg/?v=10&encoding=json"
+# Intent 1<<9 = GUILD_MESSAGES is enough to maintain presence; we send no privileged intents.
+GATEWAY_INTENTS = 0
+
+
+def run_gateway():
+    """Minimal Discord gateway client: identify, heartbeat, reconnect.
+
+    This holds a WebSocket so the bot appears online. It does not process
+    events — posting and reaction roles are handled over REST.
+    """
+    import websocket  # websocket-client
+
+    while True:
+        try:
+            ws = websocket.create_connection(GATEWAY_URL, timeout=60)
+
+            # 1. HELLO — get heartbeat interval
+            hello = json.loads(ws.recv())
+            heartbeat_ms = hello["d"]["heartbeat_interval"]
+            logger.info(f"Gateway connected (heartbeat {heartbeat_ms}ms)")
+
+            # 2. IDENTIFY (presence: online, watching StreamVault)
+            ws.send(json.dumps({
+                "op": 2,
+                "d": {
+                    "token": DISCORD_BOT_TOKEN,
+                    "intents": GATEWAY_INTENTS,
+                    "properties": {"os": "linux", "browser": "streamvault", "device": "streamvault"},
+                    "presence": {
+                        "activities": [{"name": "StreamVault 🎬", "type": 3}],  # type 3 = Watching
+                        "status": "online",
+                        "afk": False,
+                    },
+                },
+            }))
+
+            last_heartbeat = time.time()
+            seq = None
+
+            # 3. Heartbeat loop
+            while True:
+                now = time.time()
+                if (now - last_heartbeat) * 1000 >= heartbeat_ms:
+                    ws.send(json.dumps({"op": 1, "d": seq}))
+                    last_heartbeat = now
+
+                ws.settimeout(1.0)
+                try:
+                    raw = ws.recv()
+                    if raw:
+                        msg = json.loads(raw)
+                        if msg.get("s") is not None:
+                            seq = msg["s"]
+                        if msg.get("op") == 7 or msg.get("op") == 9:
+                            logger.info("Gateway asked to reconnect")
+                            break
+                except websocket.WebSocketTimeoutException:
+                    pass
+
+        except Exception as e:
+            logger.error(f"Gateway error: {e} — reconnecting in 10s")
+            time.sleep(10)
+        finally:
+            try:
+                ws.close()
+            except:
+                pass
+
+
 # ── Entry ──
 
 if __name__ == "__main__":
@@ -430,7 +502,9 @@ if __name__ == "__main__":
         logger.error("DISCORD_BOT_TOKEN not set!")
         sys.exit(1)
 
-    # Health server + reaction watcher in background; hourly poster in foreground.
+    # Background: health server, gateway (online status), reaction watcher.
+    # Foreground: hourly poster.
     threading.Thread(target=start_health_server, daemon=True).start()
+    threading.Thread(target=run_gateway, daemon=True).start()
     threading.Thread(target=watch_reactions, daemon=True).start()
     posting_loop()
